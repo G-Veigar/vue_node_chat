@@ -8,6 +8,9 @@
 # install dependencies
 npm install
 
+# sockot.io server run at localhost:3000
+npm run socket
+
 # serve with hot reload at localhost:8080
 npm run dev
 
