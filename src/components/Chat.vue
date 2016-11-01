@@ -1,7 +1,11 @@
 <template>
 	<div id="main">
 		<div id="header">
-			<button class="fa fa-cog fa-2x" aria-hidden="true"></button>
+			<div class="logo user_logo" :class="{syslogo: isSysLogo}">
+				<div class="user_name">{{user.name}}</div>
+			</div>
+			<button class="fa fa-cog fa-2x" aria-hidden="true" @click="toggleConf"></button>
+			<conf :themes="themes" v-show="conf"></conf>
 		</div>
 		<div id="content">
 			<transition name="fade">
@@ -17,10 +21,14 @@
 </template>
 
 <script>
-	// var socket = io('http://127.0.0.1:3000');
+	import Conf from './Conf';
+	import Bus from '../bus.js'; //不使用vuex的时候 创建一个全局总线管理状态
 
 	export default {
 		name: 'chat',
+		components: {
+		    Conf
+		},
 		data () {
 	    	return {
 	     	 	msg: 'Welcome to Your Vue.js App',
@@ -30,8 +38,17 @@
 	     	 	content: document.getElementById('content'),
 	     	 	tips: "",
 	     	 	tipShow: false,
-	     	 	timeoutId: ''
+	     	 	timeoutId: '',
+	     	 	conf: false,
+	     	 	confTitle: 'Setting',
+	     	 	themes: [],
+	     	 	user: {name:'',logo:''}
 	    	}
+	  	},
+	  	computed: {
+  			isSysLogo: function(){
+  				return this.user.logo.startsWith('sys');
+  			}
 	  	},
 	  	methods: {
 	  		sendMess: function(){
@@ -63,6 +80,19 @@
 	  		},
 	  		hideTips: function(){
 	  			this.tipShow = false;
+	  		},
+	  		toggleConf:function(){
+	  			if(this.conf){
+			       this.conf = false;
+			    }else{
+			       this.$http.get('http://localhost:3000/get_themes').then((res)=>{
+			       		this.themes = [];
+			       		this.themes = this.themes.concat(res.data.themes);
+			       },(res)=>{
+
+			       })
+			       this.conf = true;
+			    }
 	  		}
 	  	},
 	  	created: function(){
@@ -72,6 +102,9 @@
 	  	//组件还没有装载，所以不能在data 中定义content
 	  	mounted: function(){
 	  		this.content = document.getElementById('content');
+	  		Bus.$on('getUser',function(user){
+	  			this.user = user;
+	  		}.bind(this));
 	  	},
 	  	//等组件将messages更新完之后才能执行 滚动到底部
 	  	updated: function(){
@@ -88,6 +121,7 @@
 	height: 400px;
 	border-radius: 12px;
 	background-color: #F1F1F1;
+	position: relative;
 }
 
 #header {
@@ -219,7 +253,25 @@
 .fa-cog:hover {
 	animation-play-state:running;
 }
- 
+.user_logo {
+	position: absolute;
+	width: 46px;
+	height: 46px;
+	border-radius: 50%;
+	margin-top: 7px;
+	margin-left: 15px;
+}
+.syslogo {
+	background-image: url('http://localhost:3000/logo/sys.jpg');
+	background-size: 400%;
+}
+.user_name {
+	position: absolute;
+	height: 46px;
+	line-height: 46px;
+	left: 55px;
+	color: #fff;
+}
 @keyframes rotate{
 	from{-webkit-transform:rotate(0deg)}
 	to{-webkit-transform:rotate(360deg)}

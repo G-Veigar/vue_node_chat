@@ -22,6 +22,9 @@ export default {
   margin: 0;
   padding: 0;
 }
+.clearfix {
+  clear: both;
+}
 
 body {
   background-color: #DDE0E5;

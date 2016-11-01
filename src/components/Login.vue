@@ -1,14 +1,14 @@
 <template>
-	<div id="login_box">
+	<div id="login_box" v-if="!logined">
 		<div id="left">
 			<div class="round"></div>
 		</div>
 		<div id="right">
 			<div class="round" id="login_round">
 				<div id="form_box">
-					<input type="text" name="username" /><i class="fa fa-user fa-lg" aria-hidden="true"></i>
-					<input type="password" name="password" /><i class="fa fa-lock fa-lg" aria-hidden="true"></i>
-					<button id="login_btn">Login</button>
+					<input type="text" name="username" v-model="username" /><i class="fa fa-user fa-lg" aria-hidden="true"></i>
+					<input type="password" name="password" v-model="password" @keyup.enter="login" /><i class="fa fa-lock fa-lg" aria-hidden="true"></i>
+					<button id="login_btn" @click="login">Login</button>
 					<button id="reg_btn">注册新用户</button>
 				</div>
 			</div>
@@ -17,8 +17,34 @@
 </template>
 
 <script>
+	import Bus from '../bus.js'; //不使用vuex的时候 创建一个全局总线管理状态
 	export default {
-		name: 'login'
+		name: 'login',
+		data: function(){
+			return {
+				username: '',
+				password: '',
+				logined: false
+			}
+		},
+		methods: {
+			login: function(){
+				this.$http.post('http://localhost:3000/login',{
+					name: this.username,
+					pass: this.password
+				}).then((res)=>{
+					if(res.data.code==1){
+						this.logined = true;
+						//使用全局总线管理状态变更
+						Bus.$emit('getUser',res.data.user);
+					}else if(res.data.code==0){
+						alert(res.data.msg);
+					}
+				},(res)=>{
+					alert('some error');
+				});
+			}
+		}
 	}
 </script>
 
@@ -30,7 +56,7 @@
 	left: 0;
 	bottom: 0;
 	background-color: rgba(23,211,32,0.3);
-	display: none;
+	z-index: 1000;
 }
 
 #left {

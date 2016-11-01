@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+	<style>
+	#mydiv {
+		width: 100px;
+		height: 100px;
+		background-color: #aaa;
+		margin-left: 100px;
+		margin-top: 100px;
+		position: relative;
+	}
+	#mydiv:before {
+		content: '';
+		width: 0;
+		height: 0;
+		border: 10px solid transparent;
+		border-right: 10px solid #aaa; 
+		position: absolute;
+		left: -15px;
+	}
+	</style>
+</head>
+<body>
+	<form method="POST" action="http://127.0.0.1:3000/">
+		name:<input type="text" name="name" >
+		<br>
+		age:<input type="text" name="age" >
+		<input type="submit" name="submit" value="submit" />
+	</form>
+	<div id="mydiv"></div>
+</body>
+</html>
