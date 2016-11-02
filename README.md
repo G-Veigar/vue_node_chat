@@ -1,6 +1,6 @@
-# my_chat
+# vue_node_chat
 
-> A Vue.js project
+> 使用vue-cli构建，基于vue2,webpack,后端基于node提供静态资源文件，和socketio服务。
 
 ## Build Setup
 
