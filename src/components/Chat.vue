@@ -1,33 +1,41 @@
 <template>
-	<div id="main">
-		<div id="header">
-			<div class="logo user_logo" :class="{syslogo: isSysLogo}">
-				<div class="user_name">{{user.name}}</div>
+	<div id="main" class="clearfix">
+		<userlist :active_user="current_id" :notReadObj="notReadObj" @change_session="change_current"></userlist>
+		<div id="main_right">
+			<div id="header">
+				<div class="logo user_logo" :class="{syslogo: isSysLogo}">
+					<div class="user_name">{{user.name}}</div>
+				</div>
+				<button class="fa fa-cog fa-2x" aria-hidden="true" @click="toggleConf"></button>
+				<!-- conf组件 -->
+				<!-- <conf :themes="themes" v-show="conf"></conf> -->
 			</div>
-			<button class="fa fa-cog fa-2x" aria-hidden="true" @click="toggleConf"></button>
-			<conf :themes="themes" v-show="conf"></conf>
-		</div>
-		<div id="content">
-			<transition name="fade">
-				<div class="alert alert-info tips" v-show="tipShow">{{tips}}</div>
-			</transition>
-			<p v-for="item in messages" class="message" :class="{self: item.self}">{{item.mess}}</p>
-		</div>
-		<div id="edit">
-			<input type="text" class="mess" v-model.trim.lazy="mess" @keyup.enter="sendMess" />
-			<button class="send" @click="sendMess">Send</button>
+			<div id="content">
+				<transition name="fade">
+					<div class="alert alert-info tips" v-show="tipShow">{{tips}}</div>
+				</transition>
+				<div v-for="item in current_mess.mess" class="mess_box">
+					<div class="mess_user" v-if="!item.self">{{item.name}}</div>
+					<p  class="message" :class="{self: item.self}">{{item.value}}</p>
+				</div>
+			</div>
+			<div id="edit">
+				<input type="text" class="mess" v-model.trim.lazy="mess" @keyup.enter="sendMess" />
+				<button class="send" @click="sendMess">Send</button>
+			</div>
 		</div>
 	</div>
 </template>
 
 <script>
 	import Conf from './Conf';
+	import Userlist from './Userlist';
 	import Bus from '../bus.js'; //不使用vuex的时候 创建一个全局总线管理状态
 
 	export default {
 		name: 'chat',
 		components: {
-		    Conf
+		    Conf,Userlist
 		},
 		data () {
 	    	return {
@@ -42,31 +50,92 @@
 	     	 	conf: false,
 	     	 	confTitle: 'Setting',
 	     	 	themes: [],
-	     	 	user: {name:'',logo:''}
+	     	 	user: {name:'', logo:'', id:0},
+	     	 	current_id: 0
 	    	}
 	  	},
 	  	computed: {
   			isSysLogo: function(){
   				return this.user.logo.startsWith('sys');
+  			},
+  			current_mess: function(){
+  				var res = this.messages.find(function(mess){
+					return mess.id == this.current_id;
+				}.bind(this));
+				return res ? res:{};
+  			},
+  			notReadObj: function(){
+  				var obj ={};
+  				this.messages.map(function(item){
+  					obj[item.id] = item.notRead;
+  				})
+  				return obj;
   			}
 	  	},
 	  	methods: {
 	  		sendMess: function(){
 	  			if(this.mess){
-	  				this.socket.emit('new_mess',this.mess);
-					this.messages.push({
-						mess: this.mess,
-						self: true
-					});
+	  				//聊天大厅的广播消息
+	  				if(this.current_id==0){
+	  					this.socket.emit('all_mess',{
+		  					mess: this.mess,
+		  					id: this.user.id
+		  				});
+	  				}else{  //发送私人消息
+	  					this.socket.emit('private_mess',{
+		  					mess: this.mess,
+		  					id: this.user.id,
+		  					to: this.current_id
+		  				});
+	  				}
+	  				if(this.current_mess.mess){
+						this.current_mess.mess.push({
+							value: this.mess,
+							self: true
+						});
+					}else {
+						this.messages.push({
+							id: this.current_id,
+							mess: [{
+								value:this.mess,
+								self: true
+							}]
+						});
+					}
 					this.mess = '';
 					this.scrollBottom();
 	  			}
 	  		},
-	  		getMess: function(data){
-	  			this.messages.push({
-					mess: data,
-					self: false
-				});
+	  		getMess: function(data,isAll){
+	  			//如果是广播消息
+	  			var id = isAll? 0 : data.id;
+  				var messObj = this.messages.find(function(mess){
+	  				return mess.id == id;
+	  			});
+	  			var notRead;
+	  			if(messObj){
+	  				//如果消息不是当前聊天框消息
+		  			if(id!=this.current_id){
+		  				//未读信息+1
+		  				messObj.notRead += 1;
+		  			}
+	  				messObj.mess.push({
+						value: data.mess,
+						name: data.name,
+						self: false
+					});
+	  			}else{
+	  				notRead = (id!=this.current_id)? 1 : 0 ;
+	  				this.messages.push({
+	  					id: id,
+	  					notRead: notRead,
+	  					mess: [{
+	  						value: data.mess,
+	  						name: data.name,
+							self: false
+	  					}]
+	  				});
+	  			}
 				this.scrollBottom();
 	  		},
 	  		scrollBottom: function(){
@@ -93,17 +162,31 @@
 			       })
 			       this.conf = true;
 			    }
+	  		},
+	  		getOnlineUser: function(data){
+	  			Bus.$emit('getUserList',data);
+	  		},
+	  		change_current: function(id){
+	  			this.current_id = id;
+	  			this.current_mess.notRead = 0; 
 	  		}
 	  	},
 	  	created: function(){
-	  		this.socket.on('message',this.getMess);
+	  		this.socket.on('all_mess',function(data){
+	  			this.getMess(data,true);
+	  		}.bind(this));
+	  		this.socket.on('private_mess',function(data){
+	  			this.getMess(data,false);
+	  		}.bind(this));
 	  		this.socket.on('join',this.showTips);
+	  		this.socket.on('online_users',this.getOnlineUser);
 	  	},
 	  	//组件还没有装载，所以不能在data 中定义content
 	  	mounted: function(){
 	  		this.content = document.getElementById('content');
 	  		Bus.$on('getUser',function(user){
 	  			this.user = user;
+	  			this.socket.emit('bindUser',user.id);
 	  		}.bind(this));
 	  	},
 	  	//等组件将messages更新完之后才能执行 滚动到底部
@@ -117,18 +200,21 @@
 #main {
 	margin: 0 auto;
 	margin-top: 80px;
-	width: 500px;
-	height: 400px;
-	border-radius: 12px;
+	width: 670px;
+	height: 500px;
+	border-radius: 6px;
 	background-color: #F1F1F1;
 	position: relative;
+}
+#main_right {
+	float: left;
+	width: 500px;
 }
 
 #header {
 	height: 60px;
 	line-height: 60px;
-	border-top-left-radius: 12px;
-	border-top-right-radius: 12px;
+	border-top-right-radius: 6px;
 	background-color: #827FCD;
 }
 
@@ -145,7 +231,7 @@
 
 #content {
 	background-color: #fff;
-	height: 270px;
+	height: 370px;
 	box-sizing: border-box;
 	padding-top: 10px;
 	overflow-y: scroll; 
@@ -199,6 +285,7 @@
 	float: left;
 	clear: both;
 	position: relative;
+	margin-left: 60px;
 }
 .message:not(.self):before {
 	content: '';
@@ -271,6 +358,19 @@
 	line-height: 46px;
 	left: 55px;
 	color: #fff;
+}
+.mess_user {
+	position: absolute;
+	left: 8px;
+	top: 3px;
+	width: 35px;
+	height: 35px;
+	border-radius: 50%;
+	background-color: blue;
+}
+.mess_box {
+	position: relative;
+	clear: both;
 }
 @keyframes rotate{
 	from{-webkit-transform:rotate(0deg)}

@@ -1,7 +1,7 @@
 module.exports = {
-	host: '127.0.0.1',
-	user: 'root',
-	password: '',
-	database: 'vue_node_chat',
+	host: '172.16.2.2',
+	user: 'o2o',
+	password: 'weo2o2015',
+	database: 'gaoge',
 	charset: 'utf8_general_ci'
 }

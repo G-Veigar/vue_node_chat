@@ -18,6 +18,9 @@ export default {
 </script>
 
 <style>
+ul {
+  list-style: none;
+}
   * {
   margin: 0;
   padding: 0;
@@ -27,6 +30,6 @@ export default {
 }
 
 body {
-  background-color: #DDE0E5;
+  background: url('http://localhost:3000/img/bg.jpg');
 }
 </style>

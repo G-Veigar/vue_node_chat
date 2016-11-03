@@ -5,6 +5,10 @@ var mysql = require('mysql');
 var mysql_conf = require('../config/mysql_conf.js');
 var bodyParser = require('body-parser');
 var multer = require('multer'); 
+var colors = require('colors');//终端着色插件
+//bold italic underline inverse yellow cyan white magenta green red grey blue rainbow zebra random
+var online_users = {};
+var bind_users = {};
 
 var db = mysql.createConnection(mysql_conf);
 db.connect(function(err){
@@ -12,7 +16,7 @@ db.connect(function(err){
 		console.error('error connecting: ' + err.stack);
 		return ;
 	}
-	console.log('connected as id ' + db.threadId);
+	console.log(('db connected as id ' + db.threadId).green);
 });
 
 var query =  db.query('select * from user',function(err,res){
@@ -23,7 +27,6 @@ var query =  db.query('select * from user',function(err,res){
 	// for(var i in res){
 	// 	console.log(res[i].name);
 	// }
-	console.log(res.length);
 });
 console.log('sql log: ' + query.sql + '  -date: ' + new Date());
 
@@ -51,11 +54,22 @@ app.post('/login',function(req, res, next){
 			console.log('Mysql error when login: ' + error);
 			return ;
 		}
+		//登录成功
 		if(result.length==1){
-			console.log('user ' + result[0].name + ' login');
+			online_users[result[0].user_id] = {
+				id: result[0].user_id,
+				name: result[0].name,
+				logo: result[0].logo
+			};
+			//广播在线用户列表
+			io.sockets.emit('online_users',online_users);
+			io.sockets.emit('join','一个新用户加入了聊天室');
+			console.log(('一个新用户加入了聊天室:'+result[0].name).magenta);
+			console.log('userlist: \n'.grey,online_users);
 			res.json({
 				code: 1,
 				user: {
+					id: result[0].user_id,
 					name: result[0].name,
 					logo: result[0].logo
 				},
@@ -91,22 +105,37 @@ app.post('/upload/logo',userLogoUpload.single('new_logo'), function(req, res, ne
 app.use(express.static('node_modules',{
 
 }));
-
+//处理用户头像图片请求
 app.use('/logo',express.static('./static/img/user_logo',{
 
 }));
+//处理常规图片请求
+app.use('/img',express.static('./static/img',{
+
+}));
+
 
 var server = app.listen(3000,function(){
-	console.log('chat app server run at 3000');
+	console.log('chat app server run at 3000'.green);
 });
 var io = socket(server);
 
 
 io.on('connection',function(socket){
-	socket.on('new_mess',function(data){
-		console.log('a new mess: '+data);
-		socket.broadcast.emit('message',data);
+	//发送在线用户列表
+	socket.on('all_mess',function(data){
+		console.log(('a all_mess: '+data.mess+" from " + data.id).cyan);
+		data.name = online_users[data.id].name; 
+		socket.broadcast.emit('all_mess',data);
 	});
-	socket.broadcast.emit('join','一个新用户加入了聊天室');
-	console.log('一个新用户加入了聊天室');
+	//绑定用户到socket
+	socket.on('bindUser',function(id){
+		bind_users[id] = socket;
+		console.log(('bind user '+ id).green);
+	});
+	//发送私人消息
+	socket.on('private_mess',function(data){
+		console.log(('a private_mess: '+data.mess+" from " + data.id + " to " + data.to).cyan);
+		bind_users[data.to].emit('private_mess',data);
+	});
 });
