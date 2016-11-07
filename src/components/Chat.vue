@@ -1,6 +1,6 @@
 <template>
 	<div id="main" class="clearfix">
-		<userlist :active_user="current_id" :notReadObj="notReadObj" @change_session="change_current"></userlist>
+		<userlist :active_user="current_id" :notReadObj="notReadObj" ></userlist>
 		<div id="main_right">
 			<div id="header">
 				<div class="logo user_logo" :class="{syslogo: isSysLogo}">
@@ -15,7 +15,7 @@
 					<div class="alert alert-info tips" v-show="tipShow">{{tips}}</div>
 				</transition>
 				<div v-for="item in current_mess.mess" class="mess_box">
-					<div class="mess_user" v-if="!item.self">{{item.name}}</div>
+					<div class="mess_user" v-if="!item.self"></div>
 					<p  class="message" :class="{self: item.self}">{{item.value}}</p>
 				</div>
 			</div>
@@ -30,7 +30,10 @@
 <script>
 	import Conf from './Conf';
 	import Userlist from './Userlist';
-	import Bus from '../bus.js'; //不使用vuex的时候 创建一个全局总线管理状态
+	import { mapState } from 'vuex'
+	import { mapGetters } from 'vuex'
+	import { mapMutations } from 'vuex';
+	import { mapActions } from 'vuex'
 
 	export default {
 		name: 'chat',
@@ -39,40 +42,45 @@
 		},
 		data () {
 	    	return {
-	     	 	msg: 'Welcome to Your Vue.js App',
-	     	 	mess: "",
-	     	 	messages: [],
-	     	 	socket: io('http://127.0.0.1:3000'),
-	     	 	content: document.getElementById('content'),
-	     	 	tips: "",
-	     	 	tipShow: false,
 	     	 	timeoutId: '',
 	     	 	conf: false,
 	     	 	confTitle: 'Setting',
 	     	 	themes: [],
-	     	 	user: {name:'', logo:'', id:0},
-	     	 	current_id: 0
 	    	}
 	  	},
 	  	computed: {
+	  		...mapState([
+	  			'socket','content','tips','tipShow','user','current_id','messages','online_users'
+	  		]),
+	  		...mapGetters([
+	  			'current_mess'
+	  		]),
+	  		mess: {
+	  			get(){
+	  				return this.$store.state.mess;
+	  			},
+	  			set(value){
+	  				this.$store.commit('setMess' ,value);
+	  			}
+	  		},
   			isSysLogo: function(){
   				return this.user.logo.startsWith('sys');
-  			},
-  			current_mess: function(){
-  				var res = this.messages.find(function(mess){
-					return mess.id == this.current_id;
-				}.bind(this));
-				return res ? res:{};
   			},
   			notReadObj: function(){
   				var obj ={};
   				this.messages.map(function(item){
   					obj[item.id] = item.notRead;
-  				})
+  				});
   				return obj;
   			}
 	  	},
 	  	methods: {
+	  		...mapMutations([
+	  			'scrollBottom','initContent','setTips','setTipShow','setUser','setCurrentId','addNewMess','setOnlineUsers'
+	  		]),
+	  		...mapActions([
+		      'change_current'
+		    ]),
 	  		sendMess: function(){
 	  			if(this.mess){
 	  				//聊天大厅的广播消息
@@ -94,12 +102,13 @@
 							self: true
 						});
 					}else {
-						this.messages.push({
+						this.addNewMess({
 							id: this.current_id,
 							mess: [{
 								value:this.mess,
 								self: true
-							}]
+							}],
+							notRead: 0
 						});
 					}
 					this.mess = '';
@@ -121,12 +130,11 @@
 		  			}
 	  				messObj.mess.push({
 						value: data.mess,
-						name: data.name,
 						self: false
 					});
 	  			}else{
 	  				notRead = (id!=this.current_id)? 1 : 0 ;
-	  				this.messages.push({
+	  				this.addNewMess({
 	  					id: id,
 	  					notRead: notRead,
 	  					mess: [{
@@ -138,17 +146,13 @@
 	  			}
 				this.scrollBottom();
 	  		},
-	  		scrollBottom: function(){
-	  			this.content.scrollTop = this.content.scrollHeight;
-	  		},
 	  		showTips: function(data){
-	  			this.tips = data;
-	  			this.tipShow = true;
+	  			this.setTips(data);
+	  			this.setTipShow(true);
 	  			this.timeoutId?clearTimeout(this.timeoutId):null;
-	  			this.timeoutId = setTimeout(this.hideTips,3000);
-	  		},
-	  		hideTips: function(){
-	  			this.tipShow = false;
+	  			this.timeoutId = setTimeout(function(){
+	  				this.setTipShow(false);
+	  			}.bind(this),3000);
 	  		},
 	  		toggleConf:function(){
 	  			if(this.conf){
@@ -163,12 +167,14 @@
 			       this.conf = true;
 			    }
 	  		},
-	  		getOnlineUser: function(data){
-	  			Bus.$emit('getUserList',data);
-	  		},
-	  		change_current: function(id){
-	  			this.current_id = id;
-	  			this.current_mess.notRead = 0; 
+	  		changeUsers: function(type, id){
+	  			if(type==0){
+	  			//用户登出
+	  				
+	  			}else{
+	  			//用户登入
+
+	  			}
 	  		}
 	  	},
 	  	created: function(){
@@ -179,15 +185,14 @@
 	  			this.getMess(data,false);
 	  		}.bind(this));
 	  		this.socket.on('join',this.showTips);
-	  		this.socket.on('online_users',this.getOnlineUser);
+	  		this.socket.on('online_users',this.setOnlineUsers);
+	  		this.socket.on('user_logout', function(id){
+	  			this.changeUsers(0,id);
+	  		}.bind(this));
 	  	},
 	  	//组件还没有装载，所以不能在data 中定义content
 	  	mounted: function(){
-	  		this.content = document.getElementById('content');
-	  		Bus.$on('getUser',function(user){
-	  			this.user = user;
-	  			this.socket.emit('bindUser',user.id);
-	  		}.bind(this));
+	  		this.initContent();
 	  	},
 	  	//等组件将messages更新完之后才能执行 滚动到底部
 	  	updated: function(){
@@ -235,6 +240,7 @@
 	box-sizing: border-box;
 	padding-top: 10px;
 	overflow-y: scroll; 
+	position: relative;
 }
 
 #edit {

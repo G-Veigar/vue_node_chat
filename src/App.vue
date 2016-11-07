@@ -1,5 +1,5 @@
 <template>
-  <div id="app">
+  <div id="app"> 
     <login></login>
     <chat></chat>
   </div>
@@ -30,6 +30,7 @@ ul {
 }
 
 body {
-  background: url('http://localhost:3000/img/bg.jpg');
+  background: url('http://localhost:3000/img/bg.jpg') no-repeat;
+  background-size: 100% 100%;
 }
 </style>

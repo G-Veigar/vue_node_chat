@@ -122,10 +122,9 @@ var io = socket(server);
 
 
 io.on('connection',function(socket){
-	//发送在线用户列表
+	//发送大厅消息
 	socket.on('all_mess',function(data){
 		console.log(('a all_mess: '+data.mess+" from " + data.id).cyan);
-		data.name = online_users[data.id].name; 
 		socket.broadcast.emit('all_mess',data);
 	});
 	//绑定用户到socket
@@ -137,5 +136,9 @@ io.on('connection',function(socket){
 	socket.on('private_mess',function(data){
 		console.log(('a private_mess: '+data.mess+" from " + data.id + " to " + data.to).cyan);
 		bind_users[data.to].emit('private_mess',data);
+	});
+	socket.on('disconnect',function(){
+		console.log(('user: ' + socket.$uid + '退出了').yellow);
+		socket.broadcast.emit('user_logout', socket.$uid);
 	});
 });

@@ -17,26 +17,36 @@
 </template>
 
 <script>
-	import Bus from '../bus.js'; //不使用vuex的时候 创建一个全局总线管理状态
+	import { mapState } from 'vuex';
+	import { mapMutations } from 'vuex';
+
 	export default {
 		name: 'login',
 		data: function(){
 			return {
 				username: '',
 				password: '',
-				logined: false
 			}
 		},
+		computed: {
+			...mapState([
+				'logined','socket'
+			])
+		},
 		methods: {
+			...mapMutations([
+				'setLogined','setUser'
+			]),
 			login: function(){
 				this.$http.post('http://localhost:3000/login',{
 					name: this.username,
 					pass: this.password
 				}).then((res)=>{
 					if(res.data.code==1){
-						this.logined = true;
+						this.setLogined(true);
+						this.setUser(res.data.user);
+						this.socket.emit('bindUser',res.data.user.id);
 						//使用全局总线管理状态变更
-						Bus.$emit('getUser',res.data.user);
 					}else if(res.data.code==0){
 						alert(res.data.msg);
 					}
